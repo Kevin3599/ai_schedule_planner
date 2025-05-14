@@ -1,29 +1,41 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 日程规划器</title>
-    <meta charset="utf-8">
 </head>
 <body>
-    <h1>添加任务</h1>
-    <form method="post">
-        <label>任务：</label><input type="text" name="task" required><br>
-        <label>截止日期：</label><input type="date" name="deadline" required><br>
-        <label>优先级：</label>
-        <select name="priority">
-            <option>高</option><option>中</option><option>低</option>
-        </select><br>
-        <button type="submit">添加</button>
+    <h1>AI 日程规划器</h1>
+    
+    <form method="POST">
+        <div>
+            <label for="task">任务:</label>
+            <input type="text" id="task" name="task" required>
+        </div>
+        <div>
+            <label for="deadline">截止时间:</label>
+            <input type="text" id="deadline" name="deadline" required>
+        </div>
+        <div>
+            <label for="priority">优先级:</label>
+            <select id="priority" name="priority">
+                <option value="高">高</option>
+                <option value="中">中</option>
+                <option value="低">低</option>
+            </select>
+        </div>
+        <button type="submit">添加任务</button>
     </form>
 
-    <h2>已有任务</h2>
+    <h2>当前任务:</h2>
     <ul>
-        {% for t in tasks %}
-        <li>{{ t.task }} - {{ t.deadline }} - {{ t.priority }}</li>
-        {% endfor %}
+    {% for task in tasks %}
+        <li>{{ task.task }} - 截止时间: {{ task.deadline }} - 优先级: {{ task.priority }}</li>
+    {% endfor %}
     </ul>
 
-    <h2>今日日程建议</h2>
+    <h2>AI 规划建议:</h2>
     <pre>{{ schedule }}</pre>
 </body>
 </html>
