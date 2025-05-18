@@ -17,7 +17,100 @@
         .deadline-input {
             width: 150px;
         }
+        .danger-button {
+            background-color: #ff4444;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .danger-button:hover {
+            background-color: #cc0000;
+        }
+        .file-upload {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .upload-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .upload-button:hover {
+            background-color: #45a049;
+        }
+        .category-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .category-section h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
     </style>
+    <script>
+        function clearTasks() {
+            if (confirm('确定要清除所有任务吗？此操作不可恢复。')) {
+                fetch('/clear', {
+                    method: 'POST',
+                }).then(response => response.json())
+                  .then(data => {
+                    if (data.status === 'success') {
+                        alert('所有任务已清除');
+                        window.location.reload();
+                    } else {
+                        alert('清除失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('操作失败：' + error);
+                });
+            }
+        }
+
+        function handleFileUpload(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // 更新任务列表
+                    const taskList = document.getElementById('task-list');
+                    taskList.innerHTML = '';
+                    data.tasks.forEach(task => {
+                        taskList.innerHTML += `<li>${task.task} - 截止时间: ${task.deadline} - 优先级: ${task.priority}</li>`;
+                    });
+                    
+                    // 更新 AI 规划建议
+                    const scheduleDiv = document.getElementById('schedule-content');
+                    scheduleDiv.textContent = data.schedule;
+                    
+                    alert(data.message);
+                } else {
+                    alert('上传失败：' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('操作失败：' + error);
+            });
+        }
+    </script>
 </head>
 <body>
     <h1>AI 日程规划器</h1>
@@ -52,14 +145,36 @@
         <button type="submit">添加任务</button>
     </form>
 
+    <!-- 修改任务列表的显示 -->
     <h2>当前任务:</h2>
-    <ul>
-    {% for task in tasks %}
-        <li>{{ task.task }} - 截止时间: {{ task.deadline }} - 优先级: {{ task.priority }}</li>
-    {% endfor %}
-    </ul>
+    <div id="categorized-tasks">
+        {% for category, task_list in categorized_tasks.items() %}
+        <div class="category-section">
+            <h3>{{ category }}</h3>
+            <ul>
+            {% for task in task_list %}
+                <li>{{ task.task }} - 截止时间: {{ task.deadline }} - 优先级: {{ task.priority }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 添加清除按钮 -->
+    <button onclick="clearTasks()" class="danger-button">清除所有任务</button>
+
+    <!-- 添加文件上传部分 -->
+    <div class="file-upload">
+        <h3>从 CSV 文件导入任务</h3>
+        <form onsubmit="handleFileUpload(event)" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required>
+            <button type="submit" class="upload-button">上传并导入</button>
+        </form>
+        <small>提示：CSV 文件名将作为任务分类（例如：学习.csv, 运动.csv）</small>
+        <small>CSV 格式要求: 任务,截止时间,优先级</small>
+    </div>
 
     <h2>AI 规划建议:</h2>
-    <pre>{{ schedule }}</pre>
+    <pre id="schedule-content">{{ schedule }}</pre>
 </body>
 </html>

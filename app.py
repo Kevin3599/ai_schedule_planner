@@ -3,6 +3,10 @@ import json
 from datetime import datetime
 import locale
 from planner import generate_schedule
+import csv
+from io import StringIO
+from werkzeug.utils import secure_filename
+import os
 
 # 设置 locale 为中文
 try:
@@ -29,6 +33,86 @@ def load_tasks():
 def save_tasks(tasks):
     with open(TASK_FILE, 'w', encoding='utf-8') as f:
         json.dump(tasks, f, indent=2, ensure_ascii=False)
+
+def clear_tasks():
+    try:
+        with open(TASK_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+        return True
+    except Exception:
+        return False
+
+# 修改 parse_csv_tasks 函数，添加 category 参数
+def parse_csv_tasks(file_content, category):
+    """解析 CSV 文件内容并返回任务列表，使用文件名作为分类"""
+    tasks = []
+    csv_reader = csv.reader(StringIO(file_content.decode('utf-8-sig')))
+    next(csv_reader, None)  # 跳过表头
+    for row in csv_reader:
+        if len(row) >= 3:
+            tasks.append({
+                'task': row[0].strip(),
+                'deadline': row[1].strip(),
+                'priority': row[2].strip(),
+                'category': category  # 添加分类字段
+            })
+    return tasks
+
+@app.route('/clear', methods=['POST'])
+def clear():
+    if clear_tasks():
+        return {'status': 'success', 'message': '所有任务已清除'}
+    return {'status': 'error', 'message': '清除任务失败'}, 500
+
+# 修改 upload_file 函数
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return {'status': 'error', 'message': '没有上传文件'}, 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return {'status': 'error', 'message': '未选择文件'}, 400
+    
+    if file and file.filename.endswith('.csv'):
+        try:
+            # 从文件名获取分类（去掉.csv后缀）
+            category = os.path.splitext(secure_filename(file.filename))[0]
+            
+            content = file.read()
+            new_tasks = parse_csv_tasks(content, category)
+            
+            # 加载现有任务并合并
+            existing_tasks = load_tasks()
+            existing_tasks.extend(new_tasks)
+            
+            # 保存合并后的任务
+            save_tasks(existing_tasks)
+            
+            # 对任务进行分类
+            categorized_tasks = {}
+            for task in existing_tasks:
+                cat = task.get('category', '其他')
+                if cat not in categorized_tasks:
+                    categorized_tasks[cat] = []
+                categorized_tasks[cat].append(task)
+            
+            # 获取当前日期并生成新的计划
+            current_date = datetime.now().strftime('%Y年%m月%d日')
+            schedule = generate_schedule(existing_tasks, current_date)
+            
+            return {
+                'status': 'success', 
+                'message': f'成功导入 {len(new_tasks)} 个任务到 {category} 分类',
+                'schedule': schedule,
+                'tasks': existing_tasks,
+                'categorized_tasks': categorized_tasks
+            }
+            
+        except Exception as e:
+            return {'status': 'error', 'message': f'处理文件时出错: {str(e)}'}, 500
+    
+    return {'status': 'error', 'message': '不支持的文件格式'}, 400
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
